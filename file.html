@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NZ Comps Swiper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #fff;
+    }
+
+    header {
+      width: 100%;
+      padding: 20px;
+      text-align: center;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p { color: #aaa; font-size: 0.85rem; margin-top: 4px; }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      padding: 14px 20px;
+      font-size: 0.85rem;
+      color: #ccc;
+    }
+
+    .stats span { background: rgba(255,255,255,0.08); padding: 6px 14px; border-radius: 20px; }
+    .stats .entered { color: #4ade80; }
+    .stats .skipped { color: #f87171; }
+
+    .card-area {
+      position: relative;
+      width: 340px;
+      height: 480px;
+      margin: 10px auto;
+    }
+
+    .card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 24px;
+      cursor: grab;
+      user-select: none;
+      transition: box-shadow 0.3s;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      top: 0; left: 0;
+    }
+
+    .card:active { cursor: grabbing; }
+
+    .card.behind {
+      transform: scale(0.95) translateY(10px);
+      z-index: 0;
+      pointer-events: none;
+      transition: transform 0.3s;
+    }
+
+    .card.active { z-index: 10; }
+
+    .card .badge {
+      display: inline-block;
+      background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .card .prize {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #4ade80;
+    }
+
+    .card h2 { font-size: 1.15rem; font-weight: 700; line-height: 1.3; }
+
+    .card .source {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .card .source a { color: #38bdf8; text-decoration: none; }
+    .card .source a:hover { text-decoration: underline; }
+
+    .card .desc {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .card .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.75rem;
+    }
+
+    .card .meta span {
+      background: rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 4px 10px;
+      color: #94a3b8;
+    }
+
+    .card .expires {
+      font-size: 0.78rem;
+      color: #fbbf24;
+    }
+
+    .card .stamp {
+      position: absolute;
+      top: 30px;
+      font-size: 2.5rem;
+      font-weight: 900;
+      border-radius: 8px;
+      padding: 6px 18px;
+      border: 5px solid;
+      opacity: 0;
+      transition: opacity 0.1s;
+      pointer-events: none;
+    }
+
+    .card .stamp.nope {
+      right: 20px;
+      color: #ef4444;
+      border-color: #ef4444;
+      transform: rotate(15deg);
+    }
+
+    .card .stamp.yep {
+      left: 20px;
+      color: #4ade80;
+      border-color: #4ade80;
+      transform: rotate(-15deg);
+    }
+
+    .actions {
+      display: flex;
+      gap: 24px;
+      margin: 14px 0 10px;
+      align-items: center;
+    }
+
+    .btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    .btn:hover { transform: scale(1.1); }
+    .btn:active { transform: scale(0.95); }
+
+    .btn-skip { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .btn-enter { background: linear-gradient(135deg, #4ade80, #16a34a); }
+    .btn-info {
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,0.1);
+      font-size: 1.1rem;
+    }
+
+    .entered-list {
+      width: 340px;
+      margin: 0 auto 30px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .entered-list h3 {
+      font-size: 0.9rem;
+      color: #4ade80;
+      margin-bottom: 10px;
+    }
+
+    .entered-list .entry-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.82rem;
+    }
+
+    .entered-list .entry-item:last-child { border-bottom: none; }
+
+    .entry-item a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .entry-item .prize-small { color: #4ade80; font-size: 0.75rem; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+
+    .empty-state .icon { font-size: 4rem; margin-bottom: 16px; }
+    .empty-state p { font-size: 0.9rem; }
+    .empty-state button {
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+      border: none;
+      border-radius: 24px;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: rgba(30,41,59,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      transition: transform 0.3s;
+      z-index: 999;
+      white-space: nowrap;
+      backdrop-filter: blur(10px);
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 400px) {
+      .card-area, .entered-list { width: 95vw; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎉 NZ Comps Swiper</h1>
+  <p>Swipe right to save · Swipe left to skip</p>
+</header>
+
+<div class="stats">
+  <span>📋 <span id="remaining">0</span> left</span>
+  <span class="entered">✅ <span id="entered-count">0</span> saved</span>
+  <span class="skipped">❌ <span id="skipped-count">0</span> skipped</span>
+</div>
+
+<div class="card-area" id="cardArea"></div>
+
+<div class="actions" id="actions">
+  <button class="btn btn-skip" onclick="swipe('left')" title="Skip">👎</button>
+  <button class="btn btn-info" onclick="openCurrentLink()" title="Open link">🔗</button>
+  <button class="btn btn-enter" onclick="swipe('right')" title="Save">👍</button>
+</div>
+
+<div class="entered-list" id="enteredList" style="display:none">
+  <h3>✅ Competitions You're Interested In</h3>
+  <div id="enteredItems"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const competitions = [
+  {
+    title: "NZ Competitions – Competition Finder",
+    prize: "Up to $10,000+",
+    category: "Aggregator",
+    expires: "Updated daily",
+    desc: "New Zealand's most popular free competition listing site. Hundreds of active comps across cash, travel, tech, and lifestyle.",
+    url: "[competitions.co.nz](https://www.competitions.co.nz)",
+    source: "competitions.co.nz"
+  },
+  {
+    title: "Competitions Guide NZ",
+    prize: "All types",
+    category: "Aggregator",
+    expires: "Updated daily",
+    desc: "A community-run NZ competition listing board. Browse hundreds of active comps from brands, media, and retailers across the country.",
+    url: "[competitionsguide.co.nz](https://www.competitionsguide.co.nz)",
+    source: "Competitions Guide NZ"
+  },
+  {
+    title: "GrabOne Daily Giveaways",
+    prize: "Various",
+    category: "Lifestyle",
+    expires: "Ongoing – daily",
+    desc: "GrabOne regularly runs subscriber giveaways and prize draws. Sign up to their email list for daily competition alerts across NZ.",
+    url: "[grabone.co.nz](https://www.grabone.co.nz)",
+    source: "GrabOne"
+  },
+  {
+    title: "Treat Me Free Competitions",
+    prize: "Various",
+    category: "Lifestyle / Food",
+    expires: "Ongoing",
+    desc: "Treat Me runs regular giveaways including restaurant vouchers, experiences, and product prizes across New Zealand.",
+    url: "[treatme.co.nz](https://www.treatme.co.nz/competitions)",
+    source: "Treat Me"
+  },
+  {
+    title: "NZ Herald Competitions",
+    prize: "Travel & Cash",
+    category: "Media",
+    expires: "Multiple active",
+    desc: "NZ Herald and their radio stations (ZM, Newstalk ZB, The Hits) run frequent competitions including overseas holidays, concert tickets, and cash prizes.",
+    url: "[nzherald.co.nz](https://www.nzherald.co.nz/competitions)",
+    source: "NZ Herald"
+  },
+  {
+    title: "Woolworths NZ Competitions",
+    prize: "$500–$5,000 grocery vouchers",
+    category: "Retail",
+    expires: "Check site",
+    desc: "Woolworths NZ runs loyalty and receipt-based competitions. Check their app and website for current prize draws.",
+    url: "[woolworths.co.nz](https://www.woolworths.co.nz/competitions)",
+    source: "Woolworths NZ"
+  },
+  {
+    title: "The Hits Radio Competitions",
+    prize: "Concerts & Holidays",
+    category: "Radio / Media",
+    expires: "Ongoing",
+    desc: "The Hits runs daily on-air and online competitions including gig tickets, holidays, and cash. Enter online between segments.",
+    url: "[thehits.co.nz](https://www.thehits.co.nz/win)",
+    source: "The Hits"
+  },
+  {
+    title: "ZM Online Competitions",
+    prize: "Cash & Concert Tickets",
+    category: "Radio / Media",
+    expires: "Updated weekly",
+    desc: "ZM radio's online competition hub. Regular giveaways for gig tickets, cash, and lifestyle prizes for NZ residents.",
+    url: "[zm.co.nz](https://www.zm.co.nz/win)",
+    source: "ZM Radio"
+  },
+  {
+    title: "New World – Weekly Draws",
+    prize: "$250–$2,000 vouchers",
+    category: "Retail / Grocery",
+    expires: "Weekly draws",
+    desc: "New World runs receipt-based competitions and Clubcard member draws. Check in-store or online for current promotions.",
+    url: "[newworld.co.nz](https://www.newworld.co.nz/competitions)",
+    source: "New World"
+  },
+  {
+    title: "Trade Me Giveaways",
+    prize: "Electronics & Appliances",
+    category: "Marketplace",
+    expires: "Ongoing",
+    desc: "Trade Me occasionally hosts giveaways in partnership with sellers and brands. Check their promotions page for active draws.",
+    url: "[trademe.co.nz](https://www.trademe.co.nz/c/promo)",
+    source: "Trade Me"
+  },
+  {
+    title: "AA New Zealand Competitions",
+    prize: "Fuel vouchers & Holidays",
+    category: "Automotive / Travel",
+    expires: "Check site",
+    desc: "AA members and Smartfuel users get access to exclusive prize draws including overseas holidays, fuel credits, and roadside services.",
+    url: "[aa.co.nz](https://www.aa.co.nz/about/competitions)",
+    source: "AA New Zealand"
+  },
+  {
+    title: "Pak'nSave Competitions",
+    prize: "$500–$1,000 vouchers",
+    category: "Retail / Grocery",
+    expires: "In-store promos",
+    desc: "Pak'nSave runs receipt-based giveaways. Collect qualifying receipts and enter online for a chance to win grocery vouchers.",
+    url: "[paknsave.co.nz](https://www.paknsave.co.nz/competitions)",
+    source: "Pak'nSave"
+  },
+  {
+    title: "Lotto NZ – Second Chance Draws",
+    prize: "Bonus prizes",
+    category: "Gaming",
+    expires: "Ongoing",
+    desc: "Lotto NZ's My Lotto platform offers second-chance draws for non-winning tickets. Free to enter with your existing ticket.",
+    url: "[mylotto.co.nz](https://www.mylotto.co.nz)",
+    source: "Lotto NZ"
+  },
+  {
+    title: "Three Now Viewer Competitions",
+    prize: "Travel & Entertainment",
+    category: "Media / TV",
+    expires: "Multiple active",
+    desc: "Three and Newshub run viewer competitions regularly, including overseas travel packages, show tickets, and branded prizes.",
+    url: "[threenow.co.nz](https://www.threenow.co.nz/win)",
+    source: "Three Now"
+  },
+  {
+    title: "Noel Leeming Giveaways",
+    prize: "Electronics up to $3,000",
+    category: "Tech / Retail",
+    expires: "Check promotions page",
+    desc: "Noel Leeming runs social media and in-store competitions. Follow their Facebook and check their website for current prize draws.",
+    url: "[noelleeming.co.nz](https://www.noelleeming.co.nz/competitions)",
+    source: "Noel Leeming"
+  },
+  {
+    title: "Spark NZ Customer Competitions",
+    prize: "Devices & Data Plans",
+    category: "Telco / Tech",
+    expires: "Ongoing for customers",
+    desc: "Spark runs competitions for customers including phone upgrades, data bonuses, and entertainment bundles. Check the My Spark app.",
+    url: "[spark.co.nz](https://www.spark.co.nz/competitions)",
+    source: "Spark NZ"
+  },
+  {
+    title: "Sky TV – Win Experiences",
+    prize: "Sports & Entertainment",
+    category: "Media / Entertainment",
+    expires: "Event-based",
+    desc: "Sky NZ runs competitions around major sports events (All Blacks, cricket) and entertainment releases. Open to subscribers and non-subscribers.",
+    url: "[sky.co.nz](https://www.sky.co.nz/competitions)",
+    source: "Sky NZ"
+  },
+  {
+    title: "2degrees Competitions",
+    prize: "Phones & Plans",
+    category: "Telco",
+    expires: "Ongoing",
+    desc: "2degrees frequently runs giveaways on social media including new handsets, accessories, and prepaid top-ups. Follow their socials to enter.",
+    url: "[2degrees.nz](https://www.2degrees.nz/competitions)",
+    source: "2degrees"
+  },
+  {
+    title: "Mitre 10 Win It Competitions",
+    prize: "Tool kits & Makeovers",
+    category: "Home Improvement",
+    expires: "Seasonal promos",
+    desc: "Mitre 10 runs renovation prize draws and product giveaways. Popular during spring and summer renovation season.",
+    url: "[mitre10.co.nz](https://www.mitre10.co.nz/competitions)",
+    source: "Mitre 10"
+  },
+  {
+    title: "Farmers Department Store Giveaways",
+    prize: "$200–$1,000 store credit",
+    category: "Retail / Fashion",
+    expires: "Seasonal",
+    desc: "Farmers runs regular in-store and online competitions, especially around fashion launches, Christmas, and back-to-school periods.",
+    url: "[farmers.co.nz](https://www.farmers.co.nz/competitions)",
+    source: "Farmers"
+  }
+];
+
+let currentIndex = 0;
+let enteredComps = [];
+let skippedCount = 0;
+let startX = 0, startY = 0, currentX = 0;
+let isDragging = false;
+let activeCard = null;
+
+function init() {
+  currentIndex = 0;
+  enteredComps = [];
+  skippedCount = 0;
+  document.getElementById('enteredList').style.display = 'none';
+  document.getElementById('enteredItems').innerHTML = '';
+  document.getElementById('actions').style.display = 'flex';
+  updateStats();
+  renderCards();
+}
+
+function updateStats() {
+  document.getElementById('remaining').textContent = Math.max(0, competitions.length - currentIndex);
+  document.getElementById('entered-count').textContent = enteredComps.length;
+  document.getElementById('skipped-count').textContent = skippedCount;
+}
+
+function renderCards() {
+  const area = document.getElementById('cardArea');
+  area.innerHTML = '';
+
+  if (currentIndex >= competitions.length) {
+    showDone();
+    return;
+  }
+
+  for (let i = Math.min(currentIndex + 1, competitions.length - 1); i >= currentIndex; i--) {
+    const comp = competitions[i];
+    const card = createCard(comp, i === currentIndex);
+    area.appendChild(card);
+  }
+
+  document.getElementById('actions').style.display = 'flex';
+  updateStats();
+}
+
+function createCard(comp, isActive) {
+  const card = document.createElement('div');
+  card.className = 'card ' + (isActive ? 'active' : 'behind');
+
+  card.innerHTML = `
+    <div class="stamp nope">NOPE</div>
+    <div class="stamp yep">YES!</div>
+    <div class="badge">${comp.category}</div>
+    <div class="prize">${comp.prize}</div>
+    <h2>${comp.title}</h2>
+    <div class="source">via <a href="${comp.url}" target="_blank" rel="noopener">${comp.source}</a></div>
+    <div class="desc">${comp.desc}</div>
+    <div class="meta">
+      <span>🆓 Free Entry</span>
+      <span>🇳🇿 NZ Only</span>
+    </div>
+    <div class="expires">⏰ ${comp.expires}</div>
+  `;
+
+  if (isActive) {
+    card.addEventListener('mousedown', dragStart);
+    card.addEventListener('touchstart', dragStart, { passive: true });
+    activeCard = card;
+  }
+
+  return card;
+}
+
+function dragStart(e) {
+  isDragging = true;
+  const touch = e.touches ? e.touches[0] : e;
+  startX = touch.clientX;
+  startY = touch.clientY;
+  currentX = 0;
+
+  document.addEventListener('mousemove', dragMove);
+  document.addEventListener('mouseup', dragEnd);
+  document.addEventListener('touchmove', dragMove, { passive: true });
+  document.addEventListener('touchend', dragEnd);
+}
+
+function dragMove(e) {
+  if (!isDragging || !activeCard) return;
+  const touch = e.touches ? e.touches[0] : e;
+  currentX = touch.clientX - startX;
+  const currentY = touch.clientY - startY;
+  const rotate = currentX * 0.08;
+
+  activeCard.style.transform = `translate(${currentX}px, ${currentY * 0.3}px) rotate(${rotate}deg)`;
+  activeCard.style.transition = 'none';
+
+  const nope = activeCard.querySelector('.stamp.nope');
+  const yep = activeCard.querySelector('.stamp.yep');
+  const ratio = Math.min(Math.abs(currentX) / 80, 1);
+
+  if (currentX < -10) {
+    nope.style.opacity = ratio;
+    yep.style.opacity = 0;
+  } else if (currentX > 10) {
+    yep.style.opacity = ratio;
+    nope.style.opacity = 0;
+  } else {
+    nope.style.opacity = 0;
+    yep.style.opacity = 0;
+  }
+}
+
+function dragEnd() {
+  isDragging = false;
+  document.removeEventListener('mousemove', dragMove);
+  document.removeEventListener('mouseup', dragEnd);
+  document.removeEventListener('touchmove', dragMove);
+  document.removeEventListener('touchend', dragEnd);
+
+  if (!activeCard) return;
+
+  if (currentX > 80) {
+    animateOut('right');
+  } else if (currentX < -80) {
+    animateOut('left');
+  } else {
+    activeCard.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    activeCard.style.transform = '';
+    const nope = activeCard.querySelector('.stamp.nope');
+    const yep = activeCard.querySelector('.stamp.yep');
+    nope.style.opacity = 0;
+    yep.style.opacity = 0;
+  }
+}
+
+function swipe(dir) {
+  if (!activeCard) return;
+  animateOut(dir);
+}
+
+function animateOut(dir) {
+  if (!activeCard) return;
+  const card = activeCard;
+  activeCard = null;
+
+  const xOut = dir === 'right' ? window.innerWidth + 200 : -(window.innerWidth + 200);
+  card.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+  card.style.transform = `translate(${xOut}px, 0) rotate(${dir === 'right' ? 20 : -20}deg)`;
+  card.style.opacity = '0';
+
+  const comp = competitions[currentIndex];
+
+  if (dir === 'right') {
+    enteredComps.push(comp);
+    showToast('✅ Saved! Click 🔗 to visit and enter.');
+    updateEnteredList();
+  } else {
+    skippedCount++;
+    showToast('👎 Skipped');
+  }
+
+  currentIndex++;
+  updateStats();
+
+  setTimeout(() => {
+    card.remove();
+    renderCards();
+  }, 400);
+}
+
+function openCurrentLink() {
+  if (currentIndex < competitions.length) {
+    window.open(competitions[currentIndex].url, '_blank');
+  }
+}
+
+function updateEnteredList() {
+  const list = document.getElementById('enteredList');
+  const items = document.getElementById('enteredItems');
+  list.style.display = 'block';
+  items.innerHTML = enteredComps.map(c => `
+    <div class="entry-item">
+      <a href="${c.url}" target="_blank" rel="noopener">${c.title}</a>
+      <span class="prize-small">${c.prize}</span>
+    </div>
+  `).join('');
+}
+
+function showDone() {
+  const area = document.getElementById('cardArea');
+  document.getElementById('actions').style.display = 'none';
+
+  area.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🎊</div>
+      <h2 style="color:#fff; margin-bottom:8px;">All done!</h2>
+      <p>You saved <strong style
