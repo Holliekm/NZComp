@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NZ Comps Swiper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #fff;
+    }
+
+    header {
+      width: 100%;
+      padding: 18px 20px;
+      text-align: center;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p { color: #aaa; font-size: 0.82rem; margin-top: 4px; }
+
+    .refresh-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.03);
+      font-size: 0.78rem;
+      color: #64748b;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .refresh-bar .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+      animation: none;
+    }
+
+    .refresh-bar .dot.live { background: #4ade80; animation: pulse 2s infinite; }
+    .refresh-bar .dot.error { background: #ef4444; }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.5; transform:scale(1.3); }
+    }
+
+    #refresh-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #94a3b8;
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    #refresh-btn:hover { background: rgba(255,255,255,0.14); color:#fff; }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      padding: 10px 16px;
+      font-size: 0.8rem;
+      color: #ccc;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stats span {
+      background: rgba(255,255,255,0.08);
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
+
+    .s-saved { color: #4ade80; }
+    .s-skip  { color: #f87171; }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 400px;
+      gap: 16px;
+      color: #64748b;
+    }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: #7b2ff7;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p { font-size: 0.9rem; }
+    .loading small { font-size: 0.75rem; color: #475569; }
+
+    /* Card stack */
+    .card-area {
+      position: relative;
+      width: 340px;
+      height: 500px;
+      margin: 8px auto 0;
+    }
+
+    .card {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(255,255,255,0.11);
+      padding: 22px 22px 18px;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .card:active { cursor: grabbing; }
+    .card.behind  { transform: scale(0.95) translateY(12px); z-index: 0; pointer-events: none; }
+    .card.active  { z-index: 10; }
+
+    .stamp {
+      position: absolute;
+      top: 28px;
+      font-size: 2.2rem;
+      font-weight: 900;
+      padding: 5px 16px;
+      border-radius: 8px;
+      border: 5px solid;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s;
+    }
+
+    .stamp.nope { right: 18px; color: #ef4444; border-color: #ef4444; transform: rotate(15deg); }
+    .stamp.yep  { left: 18px;  color: #4ade80; border-color: #4ade80; transform: rotate(-15deg); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 4px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .prize-tag {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #4ade80;
+      line-height: 1;
+    }
+
+    .card h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #f1f5f9;
+    }
+
+    .by {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .desc {
+      font-size: 0.83rem;
+      color: #94a3b8;
+      line-height: 1.55;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.72rem;
+    }
+
+    .meta span {
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 3px 9px;
+      color: #94a3b8;
+    }
+
+    .expires {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      width: fit-content;
+    }
+
+    .expires.urgent { background: rgba(239,68,68,0.15);  color: #fca5a5; }
+    .expires.soon   { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .expires.normal { background: rgba(74,222,128,0.12); color: #86efac; }
+
+    .card-source {
+      font-size: 0.7rem;
+      color: #475569;
+      text-align: right;
+    }
+
+    /* Buttons */
+    .actions {
+      display: flex;
+      gap: 20px;
+      margin: 12px 0 6px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn {
+      width: 62px; height: 62px;
+      border-radius: 50%;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    .btn:hover  { transform: scale(1.12); }
+    .btn:active { transform: scale(0.93); }
+
+    .btn-skip { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .btn-open { width:44px; height:44px; font-size:1rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .btn-save { background: linear-gradient(135deg, #4ade80, #16a34a); }
+
+    .hint { font-size:0.72rem; color:#475569; text-align:center; margin-bottom:4px; }
+
+    /* Saved list */
+    .saved-section {
+      width: 340px;
+      margin: 4px auto 30px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(74,222,128,0.15);
+    }
+
+    .saved-section h3 {
+      font-size: 0.85rem;
+      color: #4ade80;
+      margin-bottom: 10px;
+    }
+
+    .entry-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      gap: 10px;
+    }
+
+    .entry-item:last-child { border-bottom: none; }
+
+    .entry-item .e-title {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    .entry-item .e-btn {
+      flex-shrink: 0;
+      background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    /* Done screen */
+    .done-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .done-screen .big-icon { font-size: 4rem; }
+    .done-screen h2 { font-size: 1.3rem; }
+    .done-screen p  { font-size: 0.85rem; color: #94a3b8; line-height: 1.5; }
+
+    .btn-restart {
+      margin-top: 8px;
+      padding: 11px 28px;
+      background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+      border: none;
+      border-radius: 24px;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Error screen */
+    .error-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .error-screen .big-icon { font-size: 3rem; }
+    .error-screen p { font-size: 0.82rem; color: #94a3b8; line-height: 1.6; }
+    .error-screen a { color: #38bdf8; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: rgba(15,23,42,0.96);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      padding: 11px 22px;
+      border-radius: 30px;
+      font-size: 0.83rem;
+      transition: transform 0.3s;
+      z-index: 999;
+      white-space: nowrap;
+      backdrop-filter: blur(12px);
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 380px) {
+      .card-area, .saved-section { width: 95vw; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎉 NZ Comps Swiper</h1>
+  <p>Live competitions • Fetched fresh every time you open</p>
+</header>
+
+<div class="refresh-bar">
+  <div class="dot" id="statusDot"></div>
+  <span id="statusText">Fetching competitions...</span>
+  <button id="refresh-btn" onclick="fetchAndLoad()">↻ Refresh</button>
+</div>
+
+<div class="stats">
+  <span>📋 <span id="s-rem">0</span> left</span>
+  <span class="s-saved">✅ <span id="s-saved">0</span> saved</span>
+  <span class="s-skip">❌ <span id="s-skip">0</span> skipped</span>
+</div>
+
+<div class="card-area" id="cardArea">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Fetching live NZ competitions...</p>
+    <small>Pulling from competitions.co.nz</small>
+  </div>
+</div>
+
+<div class="actions" id="actions" style="display:none">
+  <button class="btn btn-skip" onclick="swipe('left')"  title="Skip">👎</button>
+  <button class="btn-open"     onclick="openLink()"     title="Open entry page">🔗</button>
+  <button class="btn btn-save" onclick="swipe('right')" title="Save">👍</button>
+</div>
+
+<p class="hint" id="hint" style="display:none">👆 Drag the card or use the buttons</p>
+
+<div class="saved-section" id="savedSection" style="display:none">
+  <h3>🏆 Your Saved Competitions</h3>
+  <div id="savedItems"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CORS Proxies (tried in order if one fails) ─────────────────────────────
+const PROXIES = [
+  url => `[api.allorigins.win](https://api.allorigins.win/get?url=${encodeURIComponent(url)})`,
+  url => `[corsproxy.io](https://corsproxy.io/?${encodeURIComponent(url)})`,
+  url => `[api.codetabs.com](https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)})`
+];
+
+// ── Sources to scrape ──────────────────────────────────────────────────────
+const SOURCES = [
+  {
+    name: "competitions.co.nz",
+    // RSS feed — most reliable structured source
+    url: "[competitions.co.nz](https://www.competitions.co.nz/feed/)",
+    type: "rss"
+  },
+  {
+    name: "competitionsguide.co.nz",
+    url: "[competitionsguide.co.nz](https://www.competitionsguide.co.nz/feed/)",
+    type: "rss"
+  }
+];
+
+// ── Fallback competitions (shown if all fetches fail) ─────────────────────
+const FALLBACK = [
+  { title:"Win a $500 Grocery Voucher", organiser:"Trade Me", prize:"$500", category:"Cash & Vouchers", expires:"Ends May 05", urgency:"soon", desc:"Trade Me is giving away a $500 grocery voucher. Free to enter — just fill in the form on their site.", url:"[trademe.co.nz](https://www.trademe.co.nz/)", emoji:"🛒" },
+  { title:"Win a Trip to Honolulu or San Francisco", organiser:"Coast Radio NZ", prize:"$7,000", category:"Travel", expires:"Ends in 5 Days", urgency:"soon", desc:"Coast Radio is giving away an overseas holiday — choose between Honolulu or San Francisco!", url:"[competitions.co.nz](https://www.competitions.co.nz/)", emoji:"✈️" },
+  { title:"Win 1 of 2 x $10K Samsung Vouchers", organiser:"AMI Insurance", prize:"$20,000 total", category:"Cash & Vouchers", expires:"Ends Jun 14", urgency:"normal", desc:"AMI Insurance is giving away TWO $10,000 Samsung vouchers — that's $20K in tech prizes!", url:"[ami.co.nz](https://www.ami.co.nz/)", emoji:"📱" },
+  { title:"Win a JAC Ute", organiser:"Lump Lottery", prize:"~$30,000", category:"Cars", expires:"Ends in 6 Days", urgency:"soon", desc:"Win a brand new JAC ute from Lump Lottery. Free prize draw, open to NZ residents.", url:"[competitions.co.nz](https://www.competitions.co.nz/)", emoji:"🛻" },
+  { title:"Win 1 of 5 Epic Glamping Escapes", organiser:"Hubbards", prize:"5 x Trips", category:"Travel", expires:"Ends in 7 Days", urgency:"soon", desc:"Hubbards cereal is giving away 5 epic glamping getaways across NZ. No purchase necessary.", url:"[hubbards.co.nz](https://www.hubbards.co.nz/)", emoji:"⛺" },
+  { title:"Win $100 Daily", organiser:"rova App", prize:"$100/day", category:"Cash & Vouchers", expires:"Ends May 24", urgency:"normal", desc:"rova is giving away $100 every single day. Download the app and enter daily for multiple chances to win.", url:"[rova.nz](https://www.rova.nz/)", emoji:"💵" },
+  { title:"Win a $250 Music Store Voucher", organiser:"Radio Hauraki", prize:"$250", category:"Cash & Vouchers", expires:"Ends in 4 Days", urgency:"soon", desc:"Radio Hauraki is giving away a $250 Music Store voucher. Great for instruments or gear.", url:"[hauraki.co.nz](https://www.hauraki.co.nz/)", emoji:"🎸" },
+  { title:"Win a Wild Dispensary Mood Support Gift Pack", organiser:"MiNDFOOD", prize:"$1,170", category:"Beauty & Wellness", expires:"Ends May 17", urgency:"normal", desc:"MiNDFOOD and Wild Dispensary are giving away a wellness gift pack worth $1,170.", url:"[mindfood.com](https://www.mindfood.com/)", emoji:"🌿" },
+  { title:"Win 1 of 5 Mandalorian & Grogu Prize Packs", organiser:"Westfield", prize:"$14,364 total", category:"Gaming & Entertainment", expires:"Ends in 7 Days", urgency:"soon", desc:"Westfield is giving away 5 massive Mandalorian and Grogu prize packs worth over $14K total.", url:"[westfield.co.nz](https://www.westfield.co.nz/)", emoji:"🎮" },
+  { title:"Win a Mum's Car Bundle", organiser:"RubberTree", prize:"$2,699", category:"Cars & Vouchers", expires:"Ends May 10", urgency:"soon", desc:"RubberTree is giving away a car care bundle worth $2,699 — perfect for Mother's Day.", url:"[competitions.co.nz](https://www.competitions.co.nz/)", emoji:"🚙" }
+];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let competitions = [];
+let idx = 0, saved = [], skipped = 0;
+let startX = 0, startY = 0, curX = 0, dragging = false, activeCard = null;
+let lastFetched = null;
+
+// ── Fetch & Parse ─────────────────────────────────────────────────────────
+async function fetchWithProxy(url, proxyIndex = 0) {
+  if (proxyIndex >= PROXIES.length) throw new Error('All proxies failed');
+  const proxyUrl = PROXIES[proxyIndex](url);
+  const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  // allorigins wraps in {contents:...}, others return raw
+  return data.contents || data;
+}
+
+function parseRSS(xmlText, sourceName) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+  const items = [...doc.querySelectorAll('item')];
+
+  return items.slice(0, 20).map(item => {
+    const title   = item.querySelector('title')?.textContent?.trim() || 'Competition';
+    const link    = item.querySelector('link')?.textContent?.trim() || '#';
+    const desc    = item.querySelector('description')?.textContent?.trim() || '';
+    const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
+    const cats    = [...item.querySelectorAll('category')].map(c => c.textContent.trim());
+
+    // Strip HTML from description
+    const cleanDesc = desc.replace(/<[^>]+>/g, '').replace(/\s+/g,' ').trim().slice(0, 200);
+
+    // Try to extract prize from title/desc
+    const prizeMatch = (title + ' ' + cleanDesc).match(/\$[\d,]+/);
+    const prize = prizeMatch ? prizeMatch[0] : 'Prize';
+
+    // Urgency from pub date
+    const pub = pubDate ? new Date(pubDate) : new Date();
+    const ageHours = (Date.now() - pub.getTime()) / 36e5;
+    const urgency = ageHours < 24 ? 'urgent' : ageHours < 72 ? 'soon' : 'normal';
+
+    // Category emoji
+    const cat = cats[0] || 'Competition';
+    const emoji = guessEmoji(title + ' ' + cat);
+
+    return {
+      title: title.length > 80 ? title.slice(0,77)+'...' : title,
+      organiser: sourceName,
+      prize,
+      category: cat || 'General',
+      expires: pubDate ? `Listed ${formatDate(pub)}` : 'Check site',
+      urgency,
+      desc: cleanDesc || 'Click the link to view full competition details and enter.',
+      url: link,
+      emoji,
+      live: true
+    };
+  }).filter(c => c.title && c.url !== '#');
+}
+
+function guessEmoji(text) {
+  const t = text.toLowerCase();
+  if (t.includes('car') || t.includes('ute') || t.includes('vehicle')) return '🚗';
+  if (t.includes('travel') || t.includes('flight') || t.includes('holiday') || t.includes('trip')) return '✈️';
+  if (t.includes('cash') || t.includes('money') || t.includes('voucher') || t.includes('gift card')) return '💰';
+  if (t.includes('tech') || t.includes('phone') || t.includes('iphone') || t.includes('samsung') || t.includes('laptop')) return '📱';
+  if (t.includes('food') || t.includes('dining') || t.includes('restaurant') || t.includes('grocer')) return '🍽️';
+  if (t.includes('beauty') || t.includes('skincare') || t.includes('wellness')) return '🌿';
+  if (t.includes('pet') || t.includes('dog') || t.includes('cat')) return '🐾';
+  if (t.includes('music') || t.includes('guitar') || t.includes('concert') || t.includes('ticket')) return '🎸';
+  if (t.includes('sport') || t.includes('fitness') || t.includes('gym')) return '🏋️';
+  if (t.includes('home') || t.includes('garden') || t.includes('appliance')) return '🏡';
+  if (t.includes('book') || t.includes('read')) return '📚';
+  if (t.includes('game') || t.includes('gaming') || t.includes('playstation') || t.includes('xbox')) return '🎮';
+  if (t.includes('kids') || t.includes('children') || t.includes('school') || t.includes('family
